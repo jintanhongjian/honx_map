@@ -1,0 +1,799 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Segoe UI', sans-serif;
+    background: #f5f6f8;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #2c3e50;
+    color: #fff;
+}
+
+.app-title {
+    font-size: 18px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.mind-title {
+    flex: 0 1 320px;
+    padding: 5px 10px;
+    border: 1px solid #46627f;
+    border-radius: 4px;
+    background: #34495e;
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+}
+
+.mind-title:focus {
+    border-color: #1abc9c;
+}
+
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.tool-group {
+    display: flex;
+    gap: 6px;
+    padding-right: 10px;
+    margin-right: 4px;
+    border-right: 1px solid #e0e0e0;
+}
+
+.tool-group:last-of-type {
+    border-right: none;
+}
+
+.toolbar button {
+    padding: 6px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    background: #f6f8fa;
+    color: #24292f;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.toolbar button:hover {
+    background: #eef2f6;
+    border-color: #1abc9c;
+}
+
+.toolbar button:active {
+    background: #e2e8ee;
+}
+
+.status {
+    margin-left: auto;
+    font-size: 12px;
+    color: #27ae60;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.status.show {
+    opacity: 1;
+}
+
+#jsmind_container {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    background: #f4f4f4;
+}
+
+/* ---------------- 大纲结构侧边栏 ---------------- */
+
+.main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+.sidebar {
+    width: 320px;
+    min-width: 260px;
+    background: #fff;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar.hidden {
+    display: none;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    white-space: nowrap;
+}
+
+.sidebar-header .hint {
+    font-weight: 400;
+    font-size: 11px;
+    color: #999;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.outline {
+    flex: 1;
+    overflow: auto;
+    padding: 8px 6px 16px;
+}
+
+.outline-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1.6;
+    outline: none;
+}
+
+.outline-row:hover {
+    background: #f0f4f8;
+}
+
+.outline-row:focus {
+    background: #e8f0f7;
+}
+
+.outline-row.selected {
+    background: #d3e5ff;
+}
+
+.outline-row .topic {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.outline-row.root-row > .topic {
+    font-weight: 600;
+}
+
+.outline-row .ops {
+    display: none;
+    flex-shrink: 0;
+}
+
+.outline-row:hover .ops,
+.outline-row:focus .ops,
+.outline-row:focus-within .ops {
+    display: inline-flex;
+}
+
+.op-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 0 3px;
+    color: #667;
+    border-radius: 3px;
+}
+
+.op-btn:hover {
+    background: #dde5ec;
+    color: #000;
+}
+
+.outline-children {
+    margin-left: 12px;
+    padding-left: 8px;
+    border-left: 1px dashed #ddd;
+}
+
+.outline-edit-input {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    font-family: inherit;
+    padding: 1px 4px;
+    border: 1px solid #1abc9c;
+    border-radius: 3px;
+    outline: none;
+}
+
+/* ---------------- 右侧节点属性面板 ---------------- */
+
+.inspector {
+    width: 280px;
+    min-width: 240px;
+    background: #fff;
+    border-left: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+}
+
+.inspector.hidden {
+    display: none;
+}
+
+.inspector-header {
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.inspector-topic {
+    font-weight: 400;
+    font-size: 12px;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.inspector-body {
+    flex: 1;
+    overflow: auto;
+    padding: 10px 12px;
+}
+
+.inspector-body.disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+.inspector-body.hidden {
+    display: none;
+}
+
+.field {
+    margin-bottom: 14px;
+}
+
+.field > label {
+    display: block;
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.field button {
+    padding: 5px 10px;
+    border: 1px solid #d0d7de;
+    border-radius: 5px;
+    background: #f6f8fa;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.field button:hover {
+    border-color: #1abc9c;
+}
+
+.field button.danger {
+    color: #c0392b;
+    border-color: #e6b8b2;
+}
+
+.field button.hidden {
+    display: none;
+}
+
+.size-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.size-row input[type='number'] {
+    width: 64px;
+    padding: 4px 6px;
+    border: 1px solid #d0d7de;
+    border-radius: 5px;
+    font-size: 12px;
+}
+
+.size-row input[type='color'] {
+    width: 36px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid #d0d7de;
+    border-radius: 5px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.shape-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.shape-btn.active {
+    border-color: #1abc9c;
+    background: #e6f9f5;
+    color: #0f8a6d;
+    font-weight: 600;
+}
+
+/* ---------------- 画布右键菜单 ---------------- */
+
+.ctx-menu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 160px;
+    background: #fff;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+}
+
+.ctx-menu.hidden {
+    display: none;
+}
+
+.ctx-menu button {
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 7px 12px;
+    font-size: 13px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.ctx-menu button:hover {
+    background: #eef2f6;
+}
+
+.ctx-menu button.danger {
+    color: #c0392b;
+}
+
+/* ---------------- 表情选择面板 ---------------- */
+
+.emoji-panel {
+    position: fixed;
+    z-index: 1100;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 380px;
+    max-height: 60vh;
+    background: #fff;
+    border: 1px solid #d0d7de;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+}
+
+.emoji-panel.hidden {
+    display: none;
+}
+
+.emoji-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    border-bottom: 1px solid #eee;
+}
+
+.emoji-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 10px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.emoji-tabs button {
+    border: 1px solid #d0d7de;
+    background: #f6f8fa;
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.emoji-tabs button.active {
+    border-color: #1abc9c;
+    background: #e6f9f5;
+    color: #0f8a6d;
+}
+
+.emoji-grid {
+    flex: 1;
+    overflow: auto;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 4px;
+    padding: 10px;
+}
+
+.emoji-grid button {
+    border: none;
+    background: transparent;
+    font-size: 22px;
+    line-height: 1.4;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.emoji-grid button:hover {
+    background: #eef2f6;
+}
+
+/* ---------------- 节点外框形状 ---------------- */
+
+jmnode[data-shape='rect'] {
+    border-radius: 0 !important;
+}
+
+jmnode[data-shape='rounded'] {
+    border-radius: 12px !important;
+}
+
+jmnode[data-shape='pill'] {
+    border-radius: 999px !important;
+}
+
+jmnode[data-shape='circle'] {
+    border-radius: 50% !important;
+    text-align: center;
+}
+
+jmnode[data-shape='triangle'] {
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    text-align: center;
+    line-height: 1.2;
+}
+
+jmnode[data-shape='diamond'] {
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+    text-align: center;
+    line-height: 1.2;
+}
+
+jmnode[data-shape='underline'] {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border-bottom: 2px solid currentcolor !important;
+    background: transparent !important;
+}
+
+jmnode .node-emoji {
+    margin-right: 4px;
+}
+
+/* ---------------- 节点文字对齐与换行 ---------------- */
+
+/*
+ * 统一用 flexbox 同时控制水平与垂直对齐。
+ * 当设置了任一方向对齐（非默认）时，节点切换为 flex 容器：
+ *   水平 -> justify-content，垂直 -> align-items
+ * 这样即使节点设置了固定宽高，文本也能在节点范围内正确定位。
+ * 未设置任何对齐时保持 jsMind 原生 block 布局（避免影响默认外观）。
+ */
+jmnode[data-halign],
+jmnode[data-valign] {
+    display: flex !important;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+/* 水平对齐 -> justify-content（主轴） */
+jmnode[data-halign='left'] { justify-content: flex-start; text-align: left; }
+jmnode[data-halign='center'] { justify-content: center; text-align: center; }
+jmnode[data-halign='right'] { justify-content: flex-end; text-align: right; }
+
+/* 垂直对齐 -> align-items（交叉轴） */
+jmnode[data-valign='top'] { align-items: flex-start; }
+jmnode[data-valign='middle'] { align-items: center; }
+jmnode[data-valign='bottom'] { align-items: flex-end; }
+
+/* 手动换行：保留用户输入的换行符 */
+jmnode[data-wrap='manual'] {
+    white-space: pre-wrap !important;
+}
+
+/* 多行节点编辑器（textarea） */
+.jsmind-editor.multiline {
+    resize: none;
+    overflow: hidden;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1.4;
+    padding: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: inherit;
+    min-width: 60px;
+    box-sizing: border-box;
+}
+
+/* 对齐设置小标签 */
+.align-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+/* ---------------- 流程图 ---------------- */
+
+.tool-label {
+    font-size: 12px;
+    color: #666;
+    align-self: center;
+}
+
+.mode-btn.active {
+    background: #e6f9f5;
+    border-color: #1abc9c;
+    color: #0f8a6d;
+}
+
+#edge-type,
+#edge-panel-type {
+    padding: 5px 8px;
+    border: 1px solid #d0d7de;
+    border-radius: 5px;
+    font-size: 12px;
+    background: #fff;
+    cursor: pointer;
+}
+
+/* 流程连线叠加层 */
+.flow-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+}
+
+/* 连线模式下的画布提示 */
+#jsmind_container.edge-mode jmnode {
+    cursor: crosshair;
+}
+
+/* 连线模式下的源节点高亮 */
+jmnode.edge-source {
+    outline: 2px dashed #e67e22 !important;
+    outline-offset: 2px;
+}
+
+/* 接头节点（分支/汇合点） */
+jmnode.junction-node {
+    border-radius: 50% !important;
+    font-size: 0 !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+    border: 2px solid #555 !important;
+    cursor: pointer;
+}
+
+/* 独立节点（自由拖动） */
+jmnode.floating-node {
+    cursor: grab !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18) !important;
+    border: 1.5px dashed #e67e22 !important;
+}
+
+jmnode.floating-node:active {
+    cursor: grabbing !important;
+}
+
+/* 选中连线时的操作面板 */
+.edge-panel {
+    position: fixed;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    background: #fff;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.edge-panel.hidden {
+    display: none;
+}
+
+.edge-panel-title {
+    font-size: 12px;
+    color: #333;
+    font-weight: 600;
+}
+
+.edge-panel input[type='color'] {
+    width: 30px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.edge-bend-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #666;
+    white-space: nowrap;
+}
+
+.edge-bend-label input[type='range'] {
+    width: 70px;
+    cursor: pointer;
+}
+
+.op-btn.danger {
+    color: #c0392b;
+}
+
+.align-label {
+    font-size: 12px;
+    color: #666;
+    flex: 0 0 30px;
+}
+
+.field-hint {
+    margin: 5px 0 0;
+    font-size: 11px;
+    color: #999;
+}
+
+/* ------ 区域框选 ------ */
+.region-marquee {
+    position: fixed;
+    border: 1.5px dashed #4a90e2;
+    background: rgba(74, 144, 226, 0.12);
+    z-index: 9999;
+    pointer-events: none;
+}
+.region-marquee.hidden { display: none; }
+
+jmnode.region-selected {
+    outline: 2px solid #4a90e2;
+    outline-offset: 1px;
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.25);
+}
+
+/* ------ 模态对话框（保存格式 / 解密） ------ */
+.modal-mask {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+.modal-mask.hidden { display: none; }
+
+.modal-box {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+    min-width: 320px;
+    max-width: 420px;
+    padding: 0;
+    overflow: hidden;
+}
+.modal-title {
+    font-size: 15px;
+    font-weight: 600;
+    padding: 16px 20px 0;
+    color: #333;
+}
+.modal-body {
+    padding: 14px 20px;
+}
+.modal-hint {
+    font-size: 13px;
+    color: #666;
+    margin: 0 0 10px;
+}
+.radio-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+}
+.radio-row input[type="radio"] { cursor: pointer; }
+.password-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+}
+.password-row.hidden { display: none; }
+.modal-box input[type="password"] {
+    padding: 9px 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+.modal-box input[type="password"]:focus { border-color: #4a90e2; }
+.modal-error {
+    color: #e74c3c;
+    font-size: 12px;
+    margin-top: 8px;
+}
+.modal-error.hidden { display: none; }
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 12px 20px 16px;
+}
+.modal-actions .op-btn {
+    padding: 7px 18px;
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+}
+.modal-actions .op-btn.primary {
+    background: #4a90e2;
+    color: #fff;
+    border-color: #4a90e2;
+}
+.modal-actions .op-btn:hover { background: #f5f5f5; }
+.modal-actions .op-btn.primary:hover { background: #357abd; }
