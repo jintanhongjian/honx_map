@@ -30,58 +30,137 @@
             />
         </header>
 
-        <nav class="toolbar">
-            <!-- 面板与历史 -->
-            <div class="tool-group" title="面板与编辑历史">
-                <button id="btn-toggle-outline" title="显示/隐藏大纲结构">📋 大纲</button>
-                <button id="btn-toggle-inspector" title="显示/隐藏节点属性面板">🎛️ 属性</button>
-                <button id="btn-undo" title="撤销（Ctrl+Z）">↩️ 撤销</button>
-                <button id="btn-redo" title="重做（Ctrl+Y）">↪️ 重做</button>
+        <!-- 菜单分类控制栏 -->
+        <div class="menu-bar">
+            <div class="menu-nav" id="menu-nav">
+                <span class="menu-bar-label">菜单显示：</span>
+                <div class="menu-nav-item" data-category="file">
+                    <button class="menu-nav-btn active" data-category="file" title="点击切换显示/隐藏文件菜单">
+                        <span class="nav-indicator">✓</span> 📁 文件
+                    </button>
+                    <div class="order-btn-group">
+                        <button class="btn-move-menu" data-dir="left" data-category="file" title="左移文件菜单">◀</button>
+                        <button class="btn-move-menu" data-dir="right" data-category="file" title="右移文件菜单">▶</button>
+                    </div>
+                </div>
+                <div class="menu-nav-item" data-category="edit">
+                    <button class="menu-nav-btn active" data-category="edit" title="点击切换显示/隐藏编辑菜单">
+                        <span class="nav-indicator">✓</span> ✏️ 编辑
+                    </button>
+                    <div class="order-btn-group">
+                        <button class="btn-move-menu" data-dir="left" data-category="edit" title="左移编辑菜单">◀</button>
+                        <button class="btn-move-menu" data-dir="right" data-category="edit" title="右移编辑菜单">▶</button>
+                    </div>
+                </div>
+                <div class="menu-nav-item" data-category="element">
+                    <button class="menu-nav-btn active" data-category="element" title="点击切换显示/隐藏元素菜单">
+                        <span class="nav-indicator">✓</span> 🧩 元素
+                    </button>
+                    <div class="order-btn-group">
+                        <button class="btn-move-menu" data-dir="left" data-category="element" title="左移元素菜单">◀</button>
+                        <button class="btn-move-menu" data-dir="right" data-category="element" title="右移元素菜单">▶</button>
+                    </div>
+                </div>
+                <div class="menu-nav-item" data-category="view">
+                    <button class="menu-nav-btn active" data-category="view" title="点击切换显示/隐藏视图菜单">
+                        <span class="nav-indicator">✓</span> 👁️ 视图
+                    </button>
+                    <div class="order-btn-group">
+                        <button class="btn-move-menu" data-dir="left" data-category="view" title="左移视图菜单">◀</button>
+                        <button class="btn-move-menu" data-dir="right" data-category="view" title="右移视图菜单">▶</button>
+                    </div>
+                </div>
             </div>
-            <!-- 模式 -->
-            <div class="tool-group" title="交互模式">
-                <button id="btn-mode-select" class="mode-btn active" title="选择/编辑节点">🖱️ 选择</button>
-                <button id="btn-mode-edge" class="mode-btn" title="连线模式：点击源节点，再点击目标节点">➡️ 连线</button>
+            <div class="menu-actions">
+                <button id="btn-toggle-all-menus" class="menu-action-btn" title="显示或隐藏全部菜单">全部收起</button>
+                <span id="status" class="status"></span>
             </div>
-            <!-- 节点 -->
-            <div class="tool-group" title="节点操作">
-                <button id="btn-add-child" title="快捷键 Insert">➕ 子节点</button>
-                <button id="btn-add-brother" title="快捷键 Enter">↔️ 同级节点</button>
-                <button id="btn-add-floating" title="添加独立节点（不挂在树下），可自由拖动并用连线连接">⭕ 独立节点</button>
-                <button id="btn-add-junction" title="添加分支/汇合接头节点">◈ 接头节点</button>
-                <button id="btn-edit" title="快捷键 F2，或双击节点">✏️ 编辑</button>
-                <button id="btn-remove" title="快捷键 Delete">🗑️ 删除</button>
+        </div>
+
+        <nav class="toolbar" id="toolbar">
+            <!-- 1. 文件菜单 -->
+            <div class="menu-category" id="menu-cat-file" data-category="file">
+                <div class="category-header">
+                    <span class="category-drag-handle" title="按住拖拽调整顺序">⋮⋮</span>
+                    <span class="category-title">📁 文件</span>
+                    <button class="btn-cat-move" data-dir="left" data-category="file" title="左移文件菜单">◀</button>
+                    <button class="btn-cat-move" data-dir="right" data-category="file" title="右移文件菜单">▶</button>
+                    <button class="category-close-btn" data-category="file" title="隐藏文件菜单">✕</button>
+                </div>
+                <div class="category-body">
+                    <button id="btn-new" title="新建思维导图">📄 新建</button>
+                    <button id="btn-open" title="打开思维导图文件">📂 打开</button>
+                    <button id="btn-save" title="保存思维导图文件">💾 保存</button>
+                    <button id="btn-export-png" title="导出为 PNG 图片">🖼️ 图片</button>
+                    <button id="btn-export-pdf" title="导出为 PDF 文档">📄 PDF</button>
+                    <button id="btn-export-word" title="导出为 Word 文档">📝 Word</button>
+                </div>
             </div>
-            <!-- 连线 -->
-            <div class="tool-group" id="edge-type-group" title="流程连线">
-                <span class="tool-label">连线</span>
-                <select id="edge-type">
-                    <option value="arrow">→ 有向箭头</option>
-                    <option value="line">— 直线</option>
-                    <option value="loop">↻ 循环/自环</option>
-                </select>
+
+            <!-- 2. 编辑菜单 -->
+            <div class="menu-category" id="menu-cat-edit" data-category="edit">
+                <div class="category-header">
+                    <span class="category-drag-handle" title="按住拖拽调整顺序">⋮⋮</span>
+                    <span class="category-title">✏️ 编辑</span>
+                    <button class="btn-cat-move" data-dir="left" data-category="edit" title="左移编辑菜单">◀</button>
+                    <button class="btn-cat-move" data-dir="right" data-category="edit" title="右移编辑菜单">▶</button>
+                    <button class="category-close-btn" data-category="edit" title="隐藏编辑菜单">✕</button>
+                </div>
+                <div class="category-body">
+                    <button id="btn-undo" title="撤销（Ctrl+Z）">↩️ 撤销</button>
+                    <button id="btn-redo" title="重做（Ctrl+Y）">↪️ 重做</button>
+                    <button id="btn-mode-select" class="mode-btn active" title="选择/编辑节点">🖱️ 选择</button>
+                    <button id="btn-mode-edge" class="mode-btn" title="连线模式：点击源节点，再点击目标节点">➡️ 连线</button>
+                    <div class="tool-group-inline" id="edge-type-group" title="流程连线类型">
+                        <span class="tool-label">连线</span>
+                        <select id="edge-type" title="选择连线类型">
+                            <option value="arrow">→ 有向箭头</option>
+                            <option value="line">— 直线</option>
+                            <option value="loop">↻ 循环/自环</option>
+                        </select>
+                    </div>
+                </div>
             </div>
-            <!-- 视图 -->
-            <div class="tool-group" title="视图">
-                <button id="btn-zoom-in">🔍 放大</button>
-                <button id="btn-zoom-out">🔎 缩小</button>
-                <button id="btn-expand-all">📖 展开</button>
-                <button id="btn-collapse-all">📕 收起</button>
-                <button id="btn-auto-layout" title="重新自动排版，防止节点重叠">🧩 排版</button>
+
+            <!-- 3. 元素菜单 -->
+            <div class="menu-category" id="menu-cat-element" data-category="element">
+                <div class="category-header">
+                    <span class="category-drag-handle" title="按住拖拽调整顺序">⋮⋮</span>
+                    <span class="category-title">🧩 元素</span>
+                    <button class="btn-cat-move" data-dir="left" data-category="element" title="左移元素菜单">◀</button>
+                    <button class="btn-cat-move" data-dir="right" data-category="element" title="右移元素菜单">▶</button>
+                    <button class="category-close-btn" data-category="element" title="隐藏元素菜单">✕</button>
+                </div>
+                <div class="category-body">
+                    <button id="btn-add-brother" title="添加同级节点（快捷键 Enter）">↔️ 同级节点</button>
+                    <button id="btn-add-child" title="添加子节点（快捷键 Insert）">➕ 子节点</button>
+                    <button id="btn-add-floating" title="添加独立节点（不挂在树下），可自由拖动并用连线连接">⭕ 独立节点</button>
+                    <button id="btn-add-junction" title="添加分支/汇合接头节点">◈ 接头节点</button>
+                    <button id="btn-edit" title="快捷键 F2，或双击节点">✏️ 编辑</button>
+                    <button id="btn-remove" title="快捷键 Delete">🗑️ 删除</button>
+                </div>
             </div>
-            <!-- 文件 -->
-            <div class="tool-group" title="文件">
-                <button id="btn-new">📄 新建</button>
-                <button id="btn-open">📂 打开</button>
-                <button id="btn-save">💾 保存</button>
+
+            <!-- 4. 视图菜单 -->
+            <div class="menu-category" id="menu-cat-view" data-category="view">
+                <div class="category-header">
+                    <span class="category-drag-handle" title="按住拖拽调整顺序">⋮⋮</span>
+                    <span class="category-title">👁️ 视图</span>
+                    <button class="btn-cat-move" data-dir="left" data-category="view" title="左移视图菜单">◀</button>
+                    <button class="btn-cat-move" data-dir="right" data-category="view" title="右移视图菜单">▶</button>
+                    <button class="category-close-btn" data-category="view" title="隐藏视图菜单">✕</button>
+                </div>
+                <div class="category-body">
+                    <button id="btn-toggle-outline" title="显示/隐藏大纲结构">📋 大纲</button>
+                    <button id="btn-toggle-inspector" title="显示/隐藏节点属性面板">🎛️ 属性</button>
+                    <button id="btn-zoom-in" title="放大">🔍 放大</button>
+                    <button id="btn-zoom-out" title="缩小">🔎 缩小</button>
+                    <button id="btn-expand-all" title="展开所有节点">📖 展开</button>
+                    <button id="btn-collapse-all" title="收起所有节点">📕 收起</button>
+                    <button id="btn-auto-layout" title="重新自动排版，防止节点重叠">🧩 排版</button>
+                </div>
             </div>
-            <!-- 导出 -->
-            <div class="tool-group" title="导出">
-                <button id="btn-export-png">🖼️ 图片</button>
-                <button id="btn-export-pdf">📄 PDF</button>
-                <button id="btn-export-word">📝 Word</button>
-            </div>
-            <span id="status" class="status"></span>
+            <div id="toolbar-empty-hint" class="toolbar-empty-hint" style="display: none;">已隐藏全部菜单类别，点击上方栏目按钮即可重新显示</div>
         </nav>
 
         <div class="main">
@@ -89,7 +168,17 @@
             <aside id="sidebar" class="sidebar">
                 <div class="sidebar-header">
                     <span>📋 大纲结构</span>
-                    <span class="hint">Tab 降级 · Shift+Tab 升级 · 双击重命名</span>
+                    <span class="hint">拖拽排序 · Tab降级/Shift+Tab升级</span>
+                </div>
+                <!-- 大纲快捷工具条 -->
+                <div class="outline-toolbar">
+                    <button id="outline-btn-add-child" class="outline-tool-btn" title="添加子节点（Insert）">➕</button>
+                    <button id="outline-btn-add-brother" class="outline-tool-btn" title="添加同级节点（Enter）">↔️</button>
+                    <button id="outline-btn-move-up" class="outline-tool-btn" title="上移同级顺序（Alt+↑）">⬆️</button>
+                    <button id="outline-btn-move-down" class="outline-tool-btn" title="下移同级顺序（Alt+↓）">⬇️</button>
+                    <button id="outline-btn-promote" class="outline-tool-btn" title="升级：提升为父级同级（Shift+Tab）">⇤</button>
+                    <button id="outline-btn-demote" class="outline-tool-btn" title="降级：成为上方节点的子节点（Tab）">⇥</button>
+                    <button id="outline-btn-delete" class="outline-tool-btn danger" title="删除选中节点（Delete）">🗑️</button>
                 </div>
                 <div id="outline" class="outline"></div>
             </aside>
@@ -126,13 +215,15 @@
                         </div>
                     </div>
                     <div class="field">
-                        <label>插入表情图标</label>
-                        <button id="btn-emoji">😀 打开表情库…</button>
-                    </div>
-                    <div class="field">
-                        <label>插入用户图片</label>
-                        <button id="btn-insert-image">🖼️ 选择图片…</button>
-                        <button id="btn-remove-image" class="danger hidden">移除图片</button>
+                        <label>插入表情 / 图片 / 手绘</label>
+                        <div class="field-btn-row">
+                            <button id="btn-emoji" title="插入 Emoji 表情图标">😀 表情</button>
+                            <button id="btn-insert-image" title="选择并插入本地图片">🖼️ 图片</button>
+                            <button id="btn-handwriting" title="打开手写涂鸦板并绘制后插入节点">✍️ 手写</button>
+                        </div>
+                        <div class="field-btn-row" style="margin-top: 4px;">
+                            <button id="btn-remove-image" class="danger hidden">移除图片/手绘</button>
+                        </div>
                     </div>
                     <div class="field">
                         <label>背景色 / 文字色</label>
@@ -234,9 +325,19 @@
                 <option value="straight">— 直线</option>
                 <option value="elbow">┐ 肘形</option>
             </select>
+            <select id="edge-panel-elbow-dir" title="肘形转弯方向" style="display: none;">
+                <option value="auto">⚡ 自动转弯</option>
+                <option value="horizontal">↔ 先横后竖</option>
+                <option value="vertical">↕ 先竖后横</option>
+            </select>
             <label class="edge-bend-label" title="弧度（曲线时有效，负值反向）">
                 弧度
                 <input id="edge-panel-bend" type="range" min="-100" max="100" value="15" />
+            </label>
+            <label class="edge-width-label" title="线条粗细">
+                粗细
+                <input id="edge-panel-width" type="range" min="1" max="10" value="2" />
+                <span id="edge-panel-width-val" class="edge-width-val">2px</span>
             </label>
             <input id="edge-panel-color" type="color" value="#c0392b" title="连线颜色" />
             <button id="edge-panel-delete" class="op-btn danger" title="删除连线">✕</button>
@@ -250,6 +351,51 @@
             </div>
             <div id="emoji-tabs" class="emoji-tabs"></div>
             <div id="emoji-grid" class="emoji-grid"></div>
+        </div>
+
+        <!-- 手写绘制窗口 -->
+        <div id="handwriting-modal" class="hw-modal hidden">
+            <div class="hw-modal-mask"></div>
+            <div class="hw-modal-content">
+                <div class="hw-header">
+                    <span class="hw-title">✍️ 手写绘制</span>
+                    <button id="hw-close" class="op-btn" title="关闭窗口">✕</button>
+                </div>
+                <div class="hw-toolbar">
+                    <div class="hw-tool-item">
+                        <label for="hw-color">线条颜色：</label>
+                        <input id="hw-color" type="color" value="#2c3e50" title="调节线条颜色" />
+                        <div class="hw-color-presets">
+                            <span class="hw-color-preset" style="background:#2c3e50" data-color="#2c3e50" title="黑蓝"></span>
+                            <span class="hw-color-preset" style="background:#e74c3c" data-color="#e74c3c" title="红"></span>
+                            <span class="hw-color-preset" style="background:#27ae60" data-color="#27ae60" title="绿"></span>
+                            <span class="hw-color-preset" style="background:#2980b9" data-color="#2980b9" title="蓝"></span>
+                            <span class="hw-color-preset" style="background:#f39c12" data-color="#f39c12" title="橙"></span>
+                            <span class="hw-color-preset" style="background:#8e44ad" data-color="#8e44ad" title="紫"></span>
+                        </div>
+                    </div>
+                    <div class="hw-tool-item">
+                        <label for="hw-size">粗细：</label>
+                        <input id="hw-size" type="range" min="1" max="12" value="3" title="线条粗细" />
+                        <span id="hw-size-label" class="hw-size-val">3px</span>
+                    </div>
+                    <div class="hw-tool-item">
+                        <button id="hw-tool-pen" class="hw-btn active">✏️ 画笔</button>
+                        <button id="hw-tool-eraser" class="hw-btn">🧹 橡皮</button>
+                        <button id="hw-clear" class="hw-btn">🗑️ 清空</button>
+                    </div>
+                </div>
+                <div class="hw-canvas-container">
+                    <canvas id="hw-canvas" width="460" height="260"></canvas>
+                </div>
+                <div class="hw-footer">
+                    <span class="hw-tip">在画板上自由手写签名、标注或涂鸦</span>
+                    <div class="hw-actions">
+                        <button id="hw-cancel" class="hw-btn">取消</button>
+                        <button id="hw-confirm" class="hw-btn primary">插入到节点</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 隐藏的图片选择器 -->

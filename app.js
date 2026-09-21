@@ -369,7 +369,8 @@
         // 再画用户创建的流程连线
         getFlowEdges().forEach(function (edge) {
             var color = edge.color || '#c0392b';
-            var width = (edge.id === selectedEdgeId || isEdgeInRegion(edge.id)) ? 3 : 2;
+            var baseWidth = edge.width != null ? edge.width : 2;
+            var width = (edge.id === selectedEdgeId || isEdgeInRegion(edge.id)) ? Math.max(baseWidth + 1, 3) : baseWidth;
             drawFlowEdge(edge, color, width);
         });
     }
@@ -402,14 +403,14 @@
             var nowInside = insideOffset || isAnchor;
             // 在偏移子树内的非根节点：画 父->子 连线（根节点的入线由 jsMind 画，root 无父）
             if (nowInside && node && !node.isroot && node.parent) {
-                drawParentChildLink(node.parent, node, node.data && node.data['leading-line-color']);
+                drawParentChildLink(node.parent, node, node.data && node.data['leading-line-color'], node.data && node.data['leading-line-width']);
             }
             (n.children || []).forEach(function (c) { walk(c, nowInside); });
         })(data.data, false);
     }
 
     /** 基于元素实际位置画父子连线（贝塞尔曲线，方向自适应） */
-    function drawParentChildLink(parentNode, childNode, color) {
+    function drawParentChildLink(parentNode, childNode, color, customWidth) {
         var childEl = childNode._data.view.element;
         var parentEl = parentNode._data.view.element;
         if (!childEl || !parentEl) return;
@@ -423,8 +424,9 @@
         var ex = b.x - dir * b.w / 2;
         // 选中的树形连线高亮加粗
         var isSel = selectedTreeLink && selectedTreeLink.childId === childNode.id;
+        var baseW = customWidth || (childNode.data && childNode.data['leading-line-width']) || 2;
         flowCtx.strokeStyle = isSel ? '#4a90e2' : (color || '#555');
-        flowCtx.lineWidth = isSel ? 3 : 2;
+        flowCtx.lineWidth = isSel ? Math.max(baseW + 1, 3) : baseW;
         flowCtx.lineCap = 'round';
         flowCtx.beginPath();
         flowCtx.moveTo(sx, a.y);
@@ -441,7 +443,7 @@
             var childVisible = childNode && childNode._data.view.element &&
                 childNode._data.view.element.getBoundingClientRect().width > 0;
             if (!childVisible) return;
-            drawParentChildLink(parentNode, childNode, '#555');
+            drawParentChildLink(parentNode, childNode, childNode.data && childNode.data['leading-line-color'], childNode.data && childNode.data['leading-line-width']);
             drawSubtreeLinks(child);
         });
     }
@@ -483,13 +485,18 @@
         if (shape === 'straight') {
             flowCtx.lineTo(pts.ex, pts.ey);
         } else if (shape === 'elbow') {
-            // 肘形：先水平后垂直（或反之，根据主方向）
-            var midX, midY;
-            if (Math.abs(pts.ex - pts.sx) > Math.abs(pts.ey - pts.sy)) {
-                midX = pts.ex; midY = pts.sy; // 水平优先
+            // 肘形：根据 edge.elbowDir 决定转弯方向（auto | horizontal | vertical）
+            var elbowDir = edge.elbowDir || 'auto';
+            var isHorizFirst;
+            if (elbowDir === 'horizontal') {
+                isHorizFirst = true; // 先水平后垂直
+            } else if (elbowDir === 'vertical') {
+                isHorizFirst = false; // 先垂直后水平
             } else {
-                midX = pts.sx; midY = pts.ey; // 垂直优先
+                isHorizFirst = Math.abs(pts.ex - pts.sx) > Math.abs(pts.ey - pts.sy);
             }
+            var midX = isHorizFirst ? pts.ex : pts.sx;
+            var midY = isHorizFirst ? pts.sy : pts.ey;
             flowCtx.lineTo(midX, midY);
             flowCtx.lineTo(pts.ex, pts.ey);
         } else {
@@ -507,9 +514,11 @@
                 ang = Math.atan2(pts.ey - ccy, pts.ex - ccx);
             } else if (shape === 'elbow') {
                 // 肘形箭头朝向最后一段
-                var lastDx = pts.ex - (Math.abs(pts.ex - pts.sx) > Math.abs(pts.ey - pts.sy) ? pts.ex : pts.sx);
-                var lastDy = pts.ey - (Math.abs(pts.ex - pts.sx) > Math.abs(pts.ey - pts.sy) ? pts.sy : pts.ey);
-                ang = Math.atan2(lastDy, lastDx);
+                var elbowDir2 = edge.elbowDir || 'auto';
+                var isHorizFirst2 = elbowDir2 === 'horizontal' ? true : (elbowDir2 === 'vertical' ? false : (Math.abs(pts.ex - pts.sx) > Math.abs(pts.ey - pts.sy)));
+                var midX2 = isHorizFirst2 ? pts.ex : pts.sx;
+                var midY2 = isHorizFirst2 ? pts.sy : pts.ey;
+                ang = Math.atan2(pts.ey - midY2, pts.ex - midX2);
             } else {
                 ang = Math.atan2(pts.ey - pts.sy, pts.ex - pts.sx);
             }
@@ -568,9 +577,13 @@
                 samples.push({ x: pts.sx + (pts.ex - pts.sx) * t, y: pts.sy + (pts.ey - pts.sy) * t });
             }
         } else if (shape === 'elbow') {
-            var midX, midY;
-            if (Math.abs(pts.ex - pts.sx) > Math.abs(pts.ey - pts.sy)) { midX = pts.ex; midY = pts.sy; }
-            else { midX = pts.sx; midY = pts.ey; }
+            var elbowDirHit = edge.elbowDir || 'auto';
+            var isHorizHit;
+            if (elbowDirHit === 'horizontal') isHorizHit = true;
+            else if (elbowDirHit === 'vertical') isHorizHit = false;
+            else isHorizHit = Math.abs(pts.ex - pts.sx) > Math.abs(pts.ey - pts.sy);
+            var midX = isHorizHit ? pts.ex : pts.sx;
+            var midY = isHorizHit ? pts.sy : pts.ey;
             for (var t1 = 0; t1 <= 1; t1 += 0.02) {
                 samples.push({ x: pts.sx + (midX - pts.sx) * t1, y: pts.sy + (midY - pts.sy) * t1 });
                 samples.push({ x: midX + (pts.ex - midX) * t1, y: midY + (pts.ey - midY) * t1 });
@@ -595,10 +608,19 @@
         // 恢复流程连线专属控件（树形连线面板会隐藏它们）
         document.getElementById('edge-panel-type').style.display = '';
         document.getElementById('edge-panel-shape').style.display = '';
-        document.querySelector('.edge-bend-label').style.display = '';
+        var shape = edge.shape || 'curve';
+        document.querySelector('.edge-bend-label').style.display = shape === 'curve' ? '' : 'none';
+        var elbowDirSelect = document.getElementById('edge-panel-elbow-dir');
+        if (elbowDirSelect) {
+            elbowDirSelect.style.display = shape === 'elbow' ? '' : 'none';
+            elbowDirSelect.value = edge.elbowDir || 'auto';
+        }
         document.getElementById('edge-panel-type').value = edge.type === 'loop' ? 'loop' : edge.type;
-        document.getElementById('edge-panel-shape').value = edge.shape || 'curve';
+        document.getElementById('edge-panel-shape').value = shape;
         document.getElementById('edge-panel-bend').value = edge.bend != null ? edge.bend : 15;
+        var widthVal = edge.width != null ? edge.width : 2;
+        document.getElementById('edge-panel-width').value = widthVal;
+        document.getElementById('edge-panel-width-val').textContent = widthVal + 'px';
         document.getElementById('edge-panel-color').value = edge.color || '#c0392b';
         var mw = edgePanelEl.offsetWidth;
         edgePanelEl.style.left = Math.min(x, window.innerWidth - mw - 8) + 'px';
@@ -651,14 +673,19 @@
         return false;
     }
 
-    /** 显示树形连线编辑面板（仅颜色 + 删除，无类型/形状） */
+    /** 显示树形连线编辑面板（仅颜色 + 粗细 + 删除，无类型/形状） */
     function showTreeLinkPanel(x, y, link) {
         edgePanelEl.classList.remove('hidden');
         // 隐藏流程连线专属控件
         document.getElementById('edge-panel-type').style.display = 'none';
         document.getElementById('edge-panel-shape').style.display = 'none';
+        var elbowDirSelect = document.getElementById('edge-panel-elbow-dir');
+        if (elbowDirSelect) elbowDirSelect.style.display = 'none';
         document.querySelector('.edge-bend-label').style.display = 'none';
         var node = jm.get_node(link.childId);
+        var widthVal = (node && node.data && node.data['leading-line-width']) || 2;
+        document.getElementById('edge-panel-width').value = widthVal;
+        document.getElementById('edge-panel-width-val').textContent = widthVal + 'px';
         document.getElementById('edge-panel-color').value = (node && node.data['leading-line-color']) || '#555555';
         var mw = edgePanelEl.offsetWidth;
         edgePanelEl.style.left = Math.min(x, window.innerWidth - mw - 8) + 'px';
@@ -671,6 +698,17 @@
         var node = jm.get_node(selectedTreeLink.childId);
         if (!node) return;
         node.data['leading-line-color'] = color;
+        autoSave();
+        jm.view.show_lines();
+        redrawFlowEdges();
+    }
+
+    /** 更新选中树形连线粗细（写入子节点 leading-line-width，随序列化保存） */
+    function updateSelectedTreeLinkWidth(width) {
+        if (!selectedTreeLink) return;
+        var node = jm.get_node(selectedTreeLink.childId);
+        if (!node) return;
+        node.data['leading-line-width'] = width;
         autoSave();
         jm.view.show_lines();
         redrawFlowEdges();
@@ -1272,9 +1310,13 @@
         if (shape === 'straight') {
             for (var t = 0; t <= 1; t += 0.03) samples.push({ x: pts.sx + (pts.ex - pts.sx) * t, y: pts.sy + (pts.ey - pts.sy) * t });
         } else if (shape === 'elbow') {
-            var midX, midY;
-            if (Math.abs(pts.ex - pts.sx) > Math.abs(pts.ey - pts.sy)) { midX = pts.ex; midY = pts.sy; }
-            else { midX = pts.sx; midY = pts.ey; }
+            var elbowDirRegion = edge.elbowDir || 'auto';
+            var isHorizRegion;
+            if (elbowDirRegion === 'horizontal') isHorizRegion = true;
+            else if (elbowDirRegion === 'vertical') isHorizRegion = false;
+            else isHorizRegion = Math.abs(pts.ex - pts.sx) > Math.abs(pts.ey - pts.sy);
+            var midX = isHorizRegion ? pts.ex : pts.sx;
+            var midY = isHorizRegion ? pts.sy : pts.ey;
             for (var t1 = 0; t1 <= 1; t1 += 0.03) {
                 samples.push({ x: pts.sx + (midX - pts.sx) * t1, y: pts.sy + (midY - pts.sy) * t1 });
                 samples.push({ x: midX + (pts.ex - midX) * t1, y: midY + (pts.ey - midY) * t1 });
@@ -1675,11 +1717,35 @@
         });
         document.getElementById('edge-panel-shape').addEventListener('change', function () {
             var val = this.value;
+            var elbowDirSelect = document.getElementById('edge-panel-elbow-dir');
+            if (elbowDirSelect) {
+                elbowDirSelect.style.display = val === 'elbow' ? '' : 'none';
+            }
+            var bendLabel = document.querySelector('.edge-bend-label');
+            if (bendLabel) {
+                bendLabel.style.display = val === 'curve' ? '' : 'none';
+            }
             updateSelectedEdge(function (e) { e.shape = val; });
         });
+        var edgeElbowDirSelect = document.getElementById('edge-panel-elbow-dir');
+        if (edgeElbowDirSelect) {
+            edgeElbowDirSelect.addEventListener('change', function () {
+                var val = this.value;
+                updateSelectedEdge(function (e) { e.elbowDir = val; });
+            });
+        }
         document.getElementById('edge-panel-bend').addEventListener('input', function () {
             var val = parseInt(this.value, 10);
             updateSelectedEdge(function (e) { e.bend = val; });
+        });
+        document.getElementById('edge-panel-width').addEventListener('input', function () {
+            var val = parseInt(this.value, 10) || 2;
+            document.getElementById('edge-panel-width-val').textContent = val + 'px';
+            if (selectedTreeLink) {
+                updateSelectedTreeLinkWidth(val);
+            } else {
+                updateSelectedEdge(function (e) { e.width = val; });
+            }
         });
         document.getElementById('edge-panel-color').addEventListener('change', function () {
             var val = this.value;
@@ -1740,21 +1806,36 @@
         var origDrawLine = jm.view.graph.draw_line.bind(jm.view.graph);
         jm.view.graph.draw_line = function (pout, pin, offset, color) {
             if (isCustomLineTarget(pin)) return;
-            // 选中的树形连线（jsMind 原生绘制的）：若用户自定义了颜色则用之，
-            // 否则用高亮色标识选中态（自定义颜色优先，保证改色立即可见）
-            if (selectedTreeLink) {
-                var selNode = jm.get_node(selectedTreeLink.childId);
-                if (selNode) {
-                    var p = jm.layout.get_node_point_in(selNode);
-                    if (p && Math.abs(p.x - pin.x) < 2 && Math.abs(p.y - pin.y) < 2) {
-                        var customColor = selNode.data && selNode.data['leading-line-color'];
-                        origDrawLine(pout, pin, offset, customColor || '#4a90e2');
-                        return;
-                    }
+            // 选中的树形连线（jsMind 原生绘制的）：若用户自定义了颜色或粗细则用之
+            var targetNode = findNodeByPin(pin);
+            var isSel = selectedTreeLink && targetNode && selectedTreeLink.childId === targetNode.id;
+            var customColor = targetNode && targetNode.data && targetNode.data['leading-line-color'];
+            var customWidth = targetNode && targetNode.data && targetNode.data['leading-line-width'];
+
+            var drawColor = isSel ? (customColor || '#4a90e2') : (color || customColor);
+            origDrawLine(pout, pin, offset, drawColor);
+
+            // 更新最后生成的 SVG line/path 的粗细（若设置了自定义粗细或处于选中高亮态）
+            var lines = jm.view.graph.lines;
+            var lastPath = lines && lines.length > 0 ? lines[lines.length - 1] : null;
+            if (lastPath) {
+                if (customWidth != null || isSel) {
+                    var finalWidth = isSel ? Math.max((customWidth || 2) + 1, 3) : (customWidth || 2);
+                    lastPath.setAttribute('stroke-width', finalWidth);
                 }
             }
-            origDrawLine(pout, pin, offset, color);
         };
+
+        function findNodeByPin(pin) {
+            var nodes = jm.mind.nodes;
+            for (var id in nodes) {
+                var n = nodes[id];
+                if (n.isroot) continue;
+                var p = jm.layout.get_node_point_in(n);
+                if (p && Math.abs(p.x - pin.x) < 2 && Math.abs(p.y - pin.y) < 2) return n;
+            }
+            return null;
+        }
 
         /** 判断连线终点 pin 是否属于「需要 flow 层自绘连线」的节点：
             独立节点及其后代、有 offset 偏移的树节点的后代，或正在拖动的子树。 */
@@ -1876,6 +1957,15 @@
         row.className = 'outline-row' + (isRoot ? ' root-row' : '');
         row.dataset.nodeid = nodeData.id;
         row.tabIndex = 0;
+        row.setAttribute('draggable', isRoot ? 'false' : 'true');
+
+        if (!isRoot) {
+            var handle = document.createElement('span');
+            handle.className = 'outline-drag-handle';
+            handle.title = '按住拖动调整位置与层级';
+            handle.textContent = '⋮⋮';
+            row.appendChild(handle);
+        }
 
         var topic = document.createElement('span');
         topic.className = 'topic';
@@ -1885,10 +1975,15 @@
         var ops = document.createElement('span');
         ops.className = 'ops';
         if (!isRoot) {
-            ops.appendChild(makeOpBtn('promote', '⇤', '升级：与父节点同级（Shift+Tab）'));
-            ops.appendChild(makeOpBtn('demote', '⇥', '降级：成为上一个同级节点的子节点（Tab）'));
+            ops.appendChild(makeOpBtn('move-up', '▲', '上移同级顺序（Alt+↑）'));
+            ops.appendChild(makeOpBtn('move-down', '▼', '下移同级顺序（Alt+↓）'));
+            ops.appendChild(makeOpBtn('promote', '⇤', '升级：提升为父级同级（Shift+Tab）'));
+            ops.appendChild(makeOpBtn('demote', '⇥', '降级：成为上方节点的子节点（Tab）'));
         }
-        ops.appendChild(makeOpBtn('add', '＋', '添加子节点（Insert）'));
+        ops.appendChild(makeOpBtn('add-child', '＋', '添加子节点（Insert）'));
+        if (!isRoot) {
+            ops.appendChild(makeOpBtn('add-brother', '↔', '添加同级节点（Enter）'));
+        }
         ops.appendChild(makeOpBtn('rename', '✎', '重命名（双击 / F2）'));
         if (!isRoot) {
             ops.appendChild(makeOpBtn('delete', '✕', '删除（Delete）'));
@@ -1930,6 +2025,97 @@
                 row.classList.add('selected');
             }
         }
+        updateOutlineToolbarState();
+    }
+
+    /** 更新大纲上方工具栏按钮的禁用与启用状态 */
+    function updateOutlineToolbarState() {
+        var selected = jm.get_selected_node();
+        var isRoot = !selected || !!selected.isroot;
+        var hasSelected = !!selected;
+
+        var btnAddChild = document.getElementById('outline-btn-add-child');
+        var btnAddBrother = document.getElementById('outline-btn-add-brother');
+        var btnMoveUp = document.getElementById('outline-btn-move-up');
+        var btnMoveDown = document.getElementById('outline-btn-move-down');
+        var btnPromote = document.getElementById('outline-btn-promote');
+        var btnDemote = document.getElementById('outline-btn-demote');
+        var btnDelete = document.getElementById('outline-btn-delete');
+
+        if (btnAddChild) btnAddChild.disabled = !hasSelected;
+        if (btnAddBrother) btnAddBrother.disabled = !hasSelected || isRoot;
+        if (btnDelete) btnDelete.disabled = !hasSelected || isRoot;
+
+        if (!hasSelected || isRoot) {
+            if (btnMoveUp) btnMoveUp.disabled = true;
+            if (btnMoveDown) btnMoveDown.disabled = true;
+            if (btnPromote) btnPromote.disabled = true;
+            if (btnDemote) btnDemote.disabled = true;
+        } else {
+            var parent = selected.parent;
+            var idx = parent ? parent.children.indexOf(selected) : -1;
+            var total = parent && parent.children ? parent.children.length : 0;
+            if (btnMoveUp) btnMoveUp.disabled = (idx <= 0);
+            if (btnMoveDown) btnMoveDown.disabled = (idx === -1 || idx >= total - 1);
+            if (btnPromote) btnPromote.disabled = (parent && parent.isroot);
+            if (btnDemote) btnDemote.disabled = (idx <= 0);
+        }
+    }
+
+    /** 同级上移节点 */
+    function moveNodeUp(nodeid) {
+        var node = jm.get_node(nodeid);
+        if (!node || node.isroot) return;
+        var parent = node.parent;
+        var idx = parent.children.indexOf(node);
+        if (idx <= 0) {
+            showStatus('已是同级第一个');
+            return;
+        }
+        var prevNode = parent.children[idx - 1];
+        jm.move_node(nodeid, prevNode.id, parent.id, parent.direction);
+        jm.select_node(nodeid);
+        lastActiveNodeId = nodeid;
+        showStatus('已上移节点');
+    }
+
+    /** 同级下移节点 */
+    function moveNodeDown(nodeid) {
+        var node = jm.get_node(nodeid);
+        if (!node || node.isroot) return;
+        var parent = node.parent;
+        var idx = parent.children.indexOf(node);
+        if (idx < 0 || idx >= parent.children.length - 1) {
+            showStatus('已是同级最后一个');
+            return;
+        }
+        var targetBeforeId = (idx + 2 < parent.children.length)
+            ? parent.children[idx + 2].id
+            : '_last_';
+        jm.move_node(nodeid, targetBeforeId, parent.id, parent.direction);
+        jm.select_node(nodeid);
+        lastActiveNodeId = nodeid;
+        showStatus('已下移节点');
+    }
+
+    /** 在大纲中添加同级节点并立即进入重命名 */
+    function outlineAddBrother(nodeid) {
+        var node = jm.get_node(nodeid);
+        if (!node) return;
+        if (node.isroot) {
+            outlineAddChild(nodeid);
+            return;
+        }
+        var newid = jsMind.util.uuid.newid();
+        jm.insert_node_after(node, newid, '新节点');
+        jm.select_node(newid);
+        lastActiveNodeId = newid;
+        setTimeout(function () {
+            var row = outlineEl.querySelector('.outline-row[data-nodeid="' + newid + '"]');
+            if (row) {
+                startInlineEdit(row, newid);
+            }
+        }, 60);
     }
 
     /** 重绘后恢复焦点行 */
@@ -2053,8 +2239,196 @@
         jm.remove_node(nodeid);
     }
 
+    /** 大纲拖拽排序与层级调整 */
+    var draggedOutlineNodeId = null;
+
+    function bindOutlineDragEvents() {
+        outlineEl.addEventListener('dragstart', function (e) {
+            var row = e.target.closest('.outline-row');
+            if (!row || row.classList.contains('root-row')) {
+                e.preventDefault();
+                return;
+            }
+            draggedOutlineNodeId = row.dataset.nodeid;
+            e.dataTransfer.setData('text/plain', draggedOutlineNodeId);
+            e.dataTransfer.effectAllowed = 'move';
+            row.classList.add('dragging');
+        });
+
+        outlineEl.addEventListener('dragend', function (e) {
+            var row = e.target.closest('.outline-row');
+            if (row) row.classList.remove('dragging');
+            draggedOutlineNodeId = null;
+            clearOutlineDropIndicators();
+        });
+
+        outlineEl.addEventListener('dragover', function (e) {
+            if (!draggedOutlineNodeId) return;
+            var targetRow = e.target.closest('.outline-row');
+            if (!targetRow) return;
+            var targetNodeId = targetRow.dataset.nodeid;
+            if (targetNodeId === draggedOutlineNodeId) return;
+
+            // 禁止拖拽到自己的后代节点
+            var draggedNode = jm.get_node(draggedOutlineNodeId);
+            var targetNode = jm.get_node(targetNodeId);
+            if (!draggedNode || !targetNode) return;
+            if (jsMind.util.dom.is_node && jsMind.util.dom.is_node(targetNode)) {
+                // 或者遍历检查层级祖先
+            }
+            if (isDescendantOf(targetNode, draggedNode)) return;
+
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            clearOutlineDropIndicators();
+            var rect = targetRow.getBoundingClientRect();
+            var offsetY = e.clientY - rect.top;
+            var h = rect.height;
+
+            if (offsetY < h * 0.28) {
+                targetRow.classList.add('drop-before');
+            } else if (offsetY > h * 0.72) {
+                targetRow.classList.add('drop-after');
+            } else {
+                targetRow.classList.add('drop-inside');
+            }
+        });
+
+        outlineEl.addEventListener('dragleave', function (e) {
+            var targetRow = e.target.closest('.outline-row');
+            if (targetRow && !targetRow.contains(e.relatedTarget)) {
+                targetRow.classList.remove('drop-before', 'drop-after', 'drop-inside');
+            }
+        });
+
+        outlineEl.addEventListener('drop', function (e) {
+            if (!draggedOutlineNodeId) return;
+            var targetRow = e.target.closest('.outline-row');
+            if (!targetRow) return;
+            var targetNodeId = targetRow.dataset.nodeid;
+            if (targetNodeId === draggedOutlineNodeId) return;
+
+            var draggedNode = jm.get_node(draggedOutlineNodeId);
+            var targetNode = jm.get_node(targetNodeId);
+            if (!draggedNode || !targetNode) return;
+            if (isDescendantOf(targetNode, draggedNode)) return;
+
+            e.preventDefault();
+            var rect = targetRow.getBoundingClientRect();
+            var offsetY = e.clientY - rect.top;
+            var h = rect.height;
+            clearOutlineDropIndicators();
+
+            if (offsetY >= h * 0.28 && offsetY <= h * 0.72) {
+                // 成为 targetNode 的子节点（末尾）
+                jm.move_node(draggedOutlineNodeId, '_last_', targetNode.id, targetNode.direction);
+                if (!targetNode.expanded) {
+                    jm.expand_node(targetNode.id);
+                }
+                showStatus('已将节点移至新父级下');
+            } else if (offsetY < h * 0.28) {
+                // 插入到 targetNode 之前（与 targetNode 同级）
+                if (targetNode.isroot) {
+                    // 无法插在根节点前，作为根节点的第一个子节点
+                    jm.move_node(draggedOutlineNodeId, '_first_', targetNode.id, draggedNode.direction);
+                } else {
+                    jm.move_node(draggedOutlineNodeId, targetNode.id, targetNode.parent.id, targetNode.parent.direction);
+                }
+                showStatus('已调整节点位置');
+            } else {
+                // 插入到 targetNode 之后（与 targetNode 同级）
+                if (targetNode.isroot) {
+                    jm.move_node(draggedOutlineNodeId, '_last_', targetNode.id, draggedNode.direction);
+                } else {
+                    var p = targetNode.parent;
+                    var idx = p.children.indexOf(targetNode);
+                    var beforeId = (idx + 1 < p.children.length) ? p.children[idx + 1].id : '_last_';
+                    jm.move_node(draggedOutlineNodeId, beforeId, p.id, p.direction);
+                }
+                showStatus('已调整节点位置');
+            }
+
+            jm.select_node(draggedOutlineNodeId);
+            lastActiveNodeId = draggedOutlineNodeId;
+            draggedOutlineNodeId = null;
+        });
+    }
+
+    function clearOutlineDropIndicators() {
+        outlineEl.querySelectorAll('.outline-row').forEach(function (r) {
+            r.classList.remove('drop-before', 'drop-after', 'drop-inside');
+        });
+    }
+
+    /** 检查 candidate 是否是 ancestor 的子孙节点 */
+    function isDescendantOf(candidate, ancestor) {
+        var cur = candidate;
+        while (cur && !cur.isroot) {
+            if (cur.parent && cur.parent.id === ancestor.id) {
+                return true;
+            }
+            cur = cur.parent;
+        }
+        return false;
+    }
+
     /** 大纲点击事件委托 */
     function bindOutlineEvents() {
+        // 工具栏快捷按钮绑定
+        var btnAddChild = document.getElementById('outline-btn-add-child');
+        var btnAddBrother = document.getElementById('outline-btn-add-brother');
+        var btnMoveUp = document.getElementById('outline-btn-move-up');
+        var btnMoveDown = document.getElementById('outline-btn-move-down');
+        var btnPromote = document.getElementById('outline-btn-promote');
+        var btnDemote = document.getElementById('outline-btn-demote');
+        var btnDelete = document.getElementById('outline-btn-delete');
+
+        if (btnAddChild) {
+            btnAddChild.addEventListener('click', function () {
+                var sel = jm.get_selected_node();
+                if (sel) outlineAddChild(sel.id);
+            });
+        }
+        if (btnAddBrother) {
+            btnAddBrother.addEventListener('click', function () {
+                var sel = jm.get_selected_node();
+                if (sel) outlineAddBrother(sel.id);
+            });
+        }
+        if (btnMoveUp) {
+            btnMoveUp.addEventListener('click', function () {
+                var sel = jm.get_selected_node();
+                if (sel) moveNodeUp(sel.id);
+            });
+        }
+        if (btnMoveDown) {
+            btnMoveDown.addEventListener('click', function () {
+                var sel = jm.get_selected_node();
+                if (sel) moveNodeDown(sel.id);
+            });
+        }
+        if (btnPromote) {
+            btnPromote.addEventListener('click', function () {
+                var sel = jm.get_selected_node();
+                if (sel) promoteNode(sel.id);
+            });
+        }
+        if (btnDemote) {
+            btnDemote.addEventListener('click', function () {
+                var sel = jm.get_selected_node();
+                if (sel) demoteNode(sel.id);
+            });
+        }
+        if (btnDelete) {
+            btnDelete.addEventListener('click', function () {
+                var sel = jm.get_selected_node();
+                if (sel) outlineRemoveNode(sel.id);
+            });
+        }
+
+        bindOutlineDragEvents();
+
         outlineEl.addEventListener('click', function (e) {
             var row = e.target.closest('.outline-row');
             if (!row) return;
@@ -2063,14 +2437,23 @@
             if (btn) {
                 e.stopPropagation();
                 switch (btn.dataset.op) {
+                    case 'move-up':
+                        moveNodeUp(nodeid);
+                        break;
+                    case 'move-down':
+                        moveNodeDown(nodeid);
+                        break;
                     case 'promote':
                         promoteNode(nodeid);
                         break;
                     case 'demote':
                         demoteNode(nodeid);
                         break;
-                    case 'add':
+                    case 'add-child':
                         outlineAddChild(nodeid);
+                        break;
+                    case 'add-brother':
+                        outlineAddBrother(nodeid);
                         break;
                     case 'rename':
                         startInlineEdit(row, nodeid);
@@ -2101,6 +2484,19 @@
             var row = e.target.closest('.outline-row');
             if (!row) return;
             var nodeid = row.dataset.nodeid;
+
+            // Alt+上/下移同级顺序
+            if (e.altKey && e.key === 'ArrowUp') {
+                e.preventDefault();
+                moveNodeUp(nodeid);
+                return;
+            }
+            if (e.altKey && e.key === 'ArrowDown') {
+                e.preventDefault();
+                moveNodeDown(nodeid);
+                return;
+            }
+
             switch (e.key) {
                 case 'Tab':
                     e.preventDefault();
@@ -2110,8 +2506,11 @@
                         demoteNode(nodeid);
                     }
                     break;
-                case 'F2':
                 case 'Enter':
+                    e.preventDefault();
+                    outlineAddBrother(nodeid);
+                    break;
+                case 'F2':
                     e.preventDefault();
                     startInlineEdit(row, nodeid);
                     break;
@@ -2640,7 +3039,238 @@
             delete n.height;
         });
         updateInspector();
-        showStatus('已移除图片');
+        showStatus('已移除图片/手绘');
+    }
+
+    /* ---------------- 手写绘制功能 ---------------- */
+
+    var hwModal = document.getElementById('handwriting-modal');
+    var hwCanvas = document.getElementById('hw-canvas');
+    var hwCtx = hwCanvas ? hwCanvas.getContext('2d') : null;
+    var hwColorInput = document.getElementById('hw-color');
+    var hwSizeInput = document.getElementById('hw-size');
+    var hwSizeLabel = document.getElementById('hw-size-label');
+    var hwToolPen = document.getElementById('hw-tool-pen');
+    var hwToolEraser = document.getElementById('hw-tool-eraser');
+
+    var isDrawingHw = false;
+    var hwCurrentTool = 'pen'; // 'pen' | 'eraser'
+    var hasDrawnSomething = false;
+
+    function openHandwritingModal() {
+        var node = jm.get_selected_node();
+        if (!node) {
+            showStatus('请先选中一个节点');
+            return;
+        }
+        if (!hwModal || !hwCanvas || !hwCtx) return;
+
+        // 重置画板
+        clearHandwritingCanvas();
+        hwModal.classList.remove('hidden');
+    }
+
+    function closeHandwritingModal() {
+        if (!hwModal) return;
+        hwModal.classList.add('hidden');
+    }
+
+    function clearHandwritingCanvas() {
+        if (!hwCtx || !hwCanvas) return;
+        hwCtx.clearRect(0, 0, hwCanvas.width, hwCanvas.height);
+        hasDrawnSomething = false;
+    }
+
+    function setHwTool(tool) {
+        hwCurrentTool = tool;
+        if (hwToolPen) hwToolPen.classList.toggle('active', tool === 'pen');
+        if (hwToolEraser) hwToolEraser.classList.toggle('active', tool === 'eraser');
+    }
+
+    function initHandwritingEvents() {
+        if (!hwCanvas || !hwCtx) return;
+
+        function getPos(e) {
+            var rect = hwCanvas.getBoundingClientRect();
+            var scaleX = hwCanvas.width / rect.width;
+            var scaleY = hwCanvas.height / rect.height;
+            var clientX = e.clientX;
+            var clientY = e.clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            }
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function startDraw(e) {
+            e.preventDefault();
+            isDrawingHw = true;
+            var pos = getPos(e);
+            hwCtx.beginPath();
+            hwCtx.moveTo(pos.x, pos.y);
+            hwCtx.lineCap = 'round';
+            hwCtx.lineJoin = 'round';
+            if (hwCurrentTool === 'eraser') {
+                hwCtx.globalCompositeOperation = 'destination-out';
+                hwCtx.lineWidth = (parseInt(hwSizeInput.value, 10) || 3) * 4;
+            } else {
+                hwCtx.globalCompositeOperation = 'source-over';
+                hwCtx.strokeStyle = hwColorInput.value || '#2c3e50';
+                hwCtx.lineWidth = parseInt(hwSizeInput.value, 10) || 3;
+            }
+        }
+
+        function drawing(e) {
+            if (!isDrawingHw) return;
+            e.preventDefault();
+            var pos = getPos(e);
+            hwCtx.lineTo(pos.x, pos.y);
+            hwCtx.stroke();
+            hasDrawnSomething = true;
+        }
+
+        function stopDraw(e) {
+            if (!isDrawingHw) return;
+            isDrawingHw = false;
+            hwCtx.closePath();
+            hwCtx.globalCompositeOperation = 'source-over';
+        }
+
+        hwCanvas.addEventListener('mousedown', startDraw);
+        window.addEventListener('mousemove', drawing);
+        window.addEventListener('mouseup', stopDraw);
+
+        // 触摸屏 / 触控板绘制支持
+        hwCanvas.addEventListener('touchstart', startDraw, { passive: false });
+        window.addEventListener('touchmove', drawing, { passive: false });
+        window.addEventListener('touchend', stopDraw);
+
+        // 工具切换
+        if (hwToolPen) {
+            hwToolPen.addEventListener('click', function () { setHwTool('pen'); });
+        }
+        if (hwToolEraser) {
+            hwToolEraser.addEventListener('click', function () { setHwTool('eraser'); });
+        }
+        var hwClearBtn = document.getElementById('hw-clear');
+        if (hwClearBtn) {
+            hwClearBtn.addEventListener('click', clearHandwritingCanvas);
+        }
+
+        // 颜色与大小调节
+        if (hwSizeInput && hwSizeLabel) {
+            hwSizeInput.addEventListener('input', function () {
+                hwSizeLabel.textContent = this.value + 'px';
+            });
+        }
+        document.querySelectorAll('.hw-color-preset').forEach(function (preset) {
+            preset.addEventListener('click', function () {
+                var c = this.getAttribute('data-color');
+                if (c && hwColorInput) {
+                    hwColorInput.value = c;
+                    setHwTool('pen');
+                }
+            });
+        });
+
+        // 确定与取消
+        var hwCloseBtn = document.getElementById('hw-close');
+        var hwCancelBtn = document.getElementById('hw-cancel');
+        var hwConfirmBtn = document.getElementById('hw-confirm');
+        var hwModalMask = hwModal.querySelector('.hw-modal-mask');
+
+        if (hwCloseBtn) hwCloseBtn.addEventListener('click', closeHandwritingModal);
+        if (hwCancelBtn) hwCancelBtn.addEventListener('click', closeHandwritingModal);
+        if (hwModalMask) hwModalMask.addEventListener('click', closeHandwritingModal);
+
+        if (hwConfirmBtn) {
+            hwConfirmBtn.addEventListener('click', function () {
+                insertHandwritingToNode();
+            });
+        }
+    }
+
+    /** 智能裁剪手绘空白透明区域，并插入到当前选中节点 */
+    function insertHandwritingToNode() {
+        var node = jm.get_selected_node();
+        if (!node) {
+            showStatus('请先选中一个节点');
+            closeHandwritingModal();
+            return;
+        }
+
+        if (!hasDrawnSomething) {
+            showStatus('请先在画板上进行手写或绘制');
+            return;
+        }
+
+        // 裁剪透明边缘
+        var trimmedCanvas = trimCanvasTransparent(hwCanvas);
+        var dataUrl = trimmedCanvas.toDataURL('image/png');
+
+        var maxW = 220, maxH = 160;
+        var w = trimmedCanvas.width, h = trimmedCanvas.height;
+        var scale = Math.min(maxW / w, maxH / h, 1);
+        w = Math.max(Math.round(w * scale), 40);
+        h = Math.max(Math.round(h * scale), 28);
+
+        applyNodeData(node.id, function (n) {
+            n['background-image'] = dataUrl;
+            n.width = w;
+            n.height = h;
+        });
+        updateInspector();
+        closeHandwritingModal();
+        showStatus('已将手绘插入节点');
+    }
+
+    /** 计算并裁剪 canvas 中非透明像素的有内容区域 */
+    function trimCanvasTransparent(canvas) {
+        var ctx = canvas.getContext('2d');
+        var w = canvas.width, h = canvas.height;
+        var imgData = ctx.getImageData(0, 0, w, h);
+        var data = imgData.data;
+
+        var minX = w, minY = h, maxX = 0, maxY = 0;
+        var found = false;
+
+        for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+                var alpha = data[(y * w + x) * 4 + 3];
+                if (alpha > 0) {
+                    found = true;
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+        }
+
+        if (!found) {
+            return canvas;
+        }
+
+        // 增加少量安全边距 padding
+        var pad = 6;
+        minX = Math.max(0, minX - pad);
+        minY = Math.max(0, minY - pad);
+        maxX = Math.min(w, maxX + pad);
+        maxY = Math.min(h, maxY + pad);
+
+        var cropW = maxX - minX;
+        var cropH = maxY - minY;
+
+        var cropped = document.createElement('canvas');
+        cropped.width = cropW;
+        cropped.height = cropH;
+        var croppedCtx = cropped.getContext('2d');
+        croppedCtx.drawImage(canvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+        return cropped;
     }
 
     /* ---------------- 右键菜单 ---------------- */
@@ -3198,14 +3828,328 @@
             '<body>' + bodyHtml + '</body></html>';
 
         // 加 BOM 保证 Word 正确识别 UTF-8 中文
-        var blob = new Blob(['﻿', wordHtml], { type: 'application/msword' });
+        var blob = new Blob(['\ufeff', wordHtml], { type: 'application/msword' });
         downloadBlob(blob, name + '.doc');
         showStatus('已导出 Word 文档');
+    }
+
+    /* ---------------- 菜单分类显示与隐藏及顺序调整 ---------------- */
+
+    var MENU_STORAGE_KEY = 'honx_map_visible_menus';
+    var MENU_ORDER_STORAGE_KEY = 'honx_map_menu_order';
+    var defaultMenuCategories = ['file', 'edit', 'element', 'view'];
+    var currentMenuOrder = defaultMenuCategories.slice();
+
+    function saveMenuVisibilityState() {
+        try {
+            var state = {};
+            currentMenuOrder.forEach(function (cat) {
+                var el = document.getElementById('menu-cat-' + cat);
+                state[cat] = el ? !el.classList.contains('hidden') : true;
+            });
+            localStorage.setItem(MENU_STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {}
+    }
+
+    function saveMenuOrder() {
+        try {
+            localStorage.setItem(MENU_ORDER_STORAGE_KEY, JSON.stringify(currentMenuOrder));
+        } catch (e) {}
+    }
+
+    function applyMenuOrder(order) {
+        if (!Array.isArray(order)) return;
+        // 保证所有分类都存在且不重复
+        var validOrder = [];
+        order.forEach(function (cat) {
+            if (defaultMenuCategories.indexOf(cat) !== -1 && validOrder.indexOf(cat) === -1) {
+                validOrder.push(cat);
+            }
+        });
+        defaultMenuCategories.forEach(function (cat) {
+            if (validOrder.indexOf(cat) === -1) {
+                validOrder.push(cat);
+            }
+        });
+        currentMenuOrder = validOrder;
+
+        // 重新排布 toolbar 下的 menu-category
+        var toolbar = document.getElementById('toolbar');
+        var hint = document.getElementById('toolbar-empty-hint');
+        if (toolbar) {
+            currentMenuOrder.forEach(function (cat) {
+                var el = document.getElementById('menu-cat-' + cat);
+                if (el) toolbar.insertBefore(el, hint);
+            });
+        }
+
+        // 重新排布顶部 menu-nav 下的 nav-item
+        var menuNav = document.getElementById('menu-nav');
+        if (menuNav) {
+            currentMenuOrder.forEach(function (cat) {
+                var item = menuNav.querySelector('.menu-nav-item[data-category="' + cat + '"]');
+                if (item) menuNav.appendChild(item);
+            });
+        }
+
+        updateMoveButtonsState();
+        updateMenuAllButtonState();
+        saveMenuOrder();
+        jm.resize();
+        redrawFlowEdges();
+    }
+
+    function moveMenuCategory(category, direction) {
+        var idx = currentMenuOrder.indexOf(category);
+        if (idx === -1) return;
+        var targetIdx = direction === 'left' ? idx - 1 : idx + 1;
+        if (targetIdx < 0 || targetIdx >= currentMenuOrder.length) return;
+        var newOrder = currentMenuOrder.slice();
+        var temp = newOrder[idx];
+        newOrder[idx] = newOrder[targetIdx];
+        newOrder[targetIdx] = temp;
+        applyMenuOrder(newOrder);
+    }
+
+    function updateMoveButtonsState() {
+        // 更新所有移动按钮的禁用状态（最左侧无法再左移，最右侧无法再右移）
+        currentMenuOrder.forEach(function (cat, idx) {
+            var isFirst = (idx === 0);
+            var isLast = (idx === currentMenuOrder.length - 1);
+
+            // 顶部导航项里的移动按钮
+            var navItem = document.querySelector('.menu-nav-item[data-category="' + cat + '"]');
+            if (navItem) {
+                var btnLeft = navItem.querySelector('.btn-move-menu[data-dir="left"]');
+                var btnRight = navItem.querySelector('.btn-move-menu[data-dir="right"]');
+                if (btnLeft) btnLeft.disabled = isFirst;
+                if (btnRight) btnRight.disabled = isLast;
+            }
+
+            // 菜单卡片标题栏里的移动按钮
+            var catEl = document.getElementById('menu-cat-' + cat);
+            if (catEl) {
+                var catBtnLeft = catEl.querySelector('.btn-cat-move[data-dir="left"]');
+                var catBtnRight = catEl.querySelector('.btn-cat-move[data-dir="right"]');
+                if (catBtnLeft) catBtnLeft.disabled = isFirst;
+                if (catBtnRight) catBtnRight.disabled = isLast;
+            }
+        });
+    }
+
+    function updateMenuAllButtonState() {
+        var visibleCount = 0;
+        currentMenuOrder.forEach(function (cat) {
+            var el = document.getElementById('menu-cat-' + cat);
+            if (el && !el.classList.contains('hidden')) visibleCount++;
+        });
+        var btnToggleAll = document.getElementById('btn-toggle-all-menus');
+        if (btnToggleAll) {
+            btnToggleAll.textContent = visibleCount > 0 ? '全部收起' : '全部展开';
+        }
+        var emptyHint = document.getElementById('toolbar-empty-hint');
+        if (emptyHint) {
+            emptyHint.style.display = visibleCount === 0 ? 'block' : 'none';
+        }
+    }
+
+    function setMenuCategoryVisibility(category, visible) {
+        var catEl = document.getElementById('menu-cat-' + category);
+        var navBtn = document.querySelector('.menu-nav-btn[data-category="' + category + '"]');
+        if (catEl) {
+            catEl.classList.toggle('hidden', !visible);
+        }
+        if (navBtn) {
+            navBtn.classList.toggle('active', visible);
+        }
+        updateMenuAllButtonState();
+        saveMenuVisibilityState();
+        jm.resize();
+        redrawFlowEdges();
+    }
+
+    function toggleMenuCategory(category) {
+        var catEl = document.getElementById('menu-cat-' + category);
+        if (!catEl) return;
+        var isCurrentlyHidden = catEl.classList.contains('hidden');
+        setMenuCategoryVisibility(category, isCurrentlyHidden);
+    }
+
+    function toggleAllMenuCategories() {
+        var anyVisible = currentMenuOrder.some(function (cat) {
+            var el = document.getElementById('menu-cat-' + cat);
+            return el && !el.classList.contains('hidden');
+        });
+        var targetVisible = !anyVisible;
+        currentMenuOrder.forEach(function (cat) {
+            var catEl = document.getElementById('menu-cat-' + cat);
+            var navBtn = document.querySelector('.menu-nav-btn[data-category="' + cat + '"]');
+            if (catEl) catEl.classList.toggle('hidden', !targetVisible);
+            if (navBtn) navBtn.classList.toggle('active', targetVisible);
+        });
+        updateMenuAllButtonState();
+        saveMenuVisibilityState();
+        jm.resize();
+        redrawFlowEdges();
+    }
+
+    function initMenuVisibilityAndOrder() {
+        // 读取保存的菜单顺序
+        try {
+            var rawOrder = localStorage.getItem(MENU_ORDER_STORAGE_KEY);
+            if (rawOrder) {
+                var parsedOrder = JSON.parse(rawOrder);
+                if (Array.isArray(parsedOrder) && parsedOrder.length) {
+                    applyMenuOrder(parsedOrder);
+                } else {
+                    applyMenuOrder(defaultMenuCategories);
+                }
+            } else {
+                applyMenuOrder(defaultMenuCategories);
+            }
+        } catch (e) {
+            applyMenuOrder(defaultMenuCategories);
+        }
+
+        // 读取保存的显示/隐藏状态
+        var savedState = null;
+        try {
+            var rawState = localStorage.getItem(MENU_STORAGE_KEY);
+            if (rawState) savedState = JSON.parse(rawState);
+        } catch (e) {}
+
+        currentMenuOrder.forEach(function (cat) {
+            var visible = true;
+            if (savedState && typeof savedState[cat] === 'boolean') {
+                visible = savedState[cat];
+            }
+            var catEl = document.getElementById('menu-cat-' + cat);
+            var navBtn = document.querySelector('.menu-nav-btn[data-category="' + cat + '"]');
+            if (catEl) catEl.classList.toggle('hidden', !visible);
+            if (navBtn) navBtn.classList.toggle('active', visible);
+        });
+        updateMenuAllButtonState();
+    }
+
+    function bindMenuOrderAndDrag() {
+        // 点击左移/右移按钮调整顺序
+        document.addEventListener('click', function (e) {
+            var moveBtn = e.target.closest('.btn-move-menu, .btn-cat-move');
+            if (moveBtn) {
+                e.stopPropagation();
+                var dir = moveBtn.getAttribute('data-dir');
+                var cat = moveBtn.getAttribute('data-category');
+                if (dir && cat) {
+                    moveMenuCategory(cat, dir);
+                }
+            }
+        });
+
+        // 拖拽排序支持：针对顶部 menu-nav-item
+        var draggedNavCategory = null;
+        document.querySelectorAll('.menu-nav-item').forEach(function (item) {
+            item.setAttribute('draggable', 'true');
+            item.addEventListener('dragstart', function (e) {
+                draggedNavCategory = this.getAttribute('data-category');
+                e.dataTransfer.setData('text/plain', draggedNavCategory);
+                this.classList.add('dragging');
+            });
+            item.addEventListener('dragend', function () {
+                this.classList.remove('dragging');
+                document.querySelectorAll('.menu-nav-item').forEach(function (el) {
+                    el.classList.remove('drag-over');
+                });
+            });
+            item.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                this.classList.add('drag-over');
+            });
+            item.addEventListener('dragleave', function () {
+                this.classList.remove('drag-over');
+            });
+            item.addEventListener('drop', function (e) {
+                e.preventDefault();
+                this.classList.remove('drag-over');
+                var targetCat = this.getAttribute('data-category');
+                if (draggedNavCategory && targetCat && draggedNavCategory !== targetCat) {
+                    var fromIdx = currentMenuOrder.indexOf(draggedNavCategory);
+                    var toIdx = currentMenuOrder.indexOf(targetCat);
+                    if (fromIdx !== -1 && toIdx !== -1) {
+                        var newOrder = currentMenuOrder.slice();
+                        newOrder.splice(fromIdx, 1);
+                        newOrder.splice(toIdx, 0, draggedNavCategory);
+                        applyMenuOrder(newOrder);
+                    }
+                }
+            });
+        });
+
+        // 拖拽排序支持：针对工具栏卡片拖拽手柄
+        var draggedCardCategory = null;
+        document.querySelectorAll('.menu-category').forEach(function (card) {
+            var handle = card.querySelector('.category-drag-handle');
+            if (handle) {
+                handle.setAttribute('draggable', 'true');
+                handle.addEventListener('dragstart', function (e) {
+                    draggedCardCategory = card.getAttribute('data-category');
+                    e.dataTransfer.setData('text/plain', draggedCardCategory);
+                    card.classList.add('dragging');
+                });
+                handle.addEventListener('dragend', function () {
+                    card.classList.remove('dragging');
+                    document.querySelectorAll('.menu-category').forEach(function (el) {
+                        el.classList.remove('drag-over');
+                    });
+                });
+            }
+            card.addEventListener('dragover', function (e) {
+                if (!draggedCardCategory) return;
+                e.preventDefault();
+                card.classList.add('drag-over');
+            });
+            card.addEventListener('dragleave', function () {
+                card.classList.remove('drag-over');
+            });
+            card.addEventListener('drop', function (e) {
+                if (!draggedCardCategory) return;
+                e.preventDefault();
+                card.classList.remove('drag-over');
+                var targetCat = card.getAttribute('data-category');
+                if (targetCat && draggedCardCategory !== targetCat) {
+                    var fromIdx = currentMenuOrder.indexOf(draggedCardCategory);
+                    var toIdx = currentMenuOrder.indexOf(targetCat);
+                    if (fromIdx !== -1 && toIdx !== -1) {
+                        var newOrder = currentMenuOrder.slice();
+                        newOrder.splice(fromIdx, 1);
+                        newOrder.splice(toIdx, 0, draggedCardCategory);
+                        applyMenuOrder(newOrder);
+                    }
+                }
+            });
+        });
     }
 
     /* ---------------- 事件绑定 ---------------- */
 
     function bindEvents() {
+        // 菜单分类独立显示/隐藏事件
+        document.querySelectorAll('.menu-nav-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var cat = this.getAttribute('data-category');
+                if (cat) toggleMenuCategory(cat);
+            });
+        });
+        document.querySelectorAll('.category-close-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var cat = this.getAttribute('data-category');
+                if (cat) setMenuCategoryVisibility(cat, false);
+            });
+        });
+        var btnToggleAll = document.getElementById('btn-toggle-all-menus');
+        if (btnToggleAll) {
+            btnToggleAll.addEventListener('click', toggleAllMenuCategories);
+        }
+
         document.getElementById('btn-toggle-outline').addEventListener('click', function () {
             sidebarEl.classList.toggle('hidden');
             // 容器尺寸变化后通知 jsMind 重新计算视图
@@ -3306,6 +4250,10 @@
             if (file) insertUserImage(file);
             e.target.value = '';
         });
+        var btnHw = document.getElementById('btn-handwriting');
+        if (btnHw) {
+            btnHw.addEventListener('click', openHandwritingModal);
+        }
         document.getElementById('btn-remove-image').addEventListener('click', removeUserImage);
     }
 
@@ -3313,7 +4261,9 @@
         initMindMap();
         patchEditorForMultiline();
         initFlowLayer();
+        initHandwritingEvents();
         bindEvents();
+        bindMenuOrderAndDrag();
         bindOutlineEvents();
         bindContextMenu();
         bindFlowEvents();
@@ -3322,6 +4272,7 @@
         bindRegionSelect();
         loadEmojiCatalog();
         initHistory();
+        initMenuVisibilityAndOrder();
         applyPageProps();
         showPageProps(); // 初始未选中节点，显示页面属性
         // 窗口尺寸变化时重画连线
